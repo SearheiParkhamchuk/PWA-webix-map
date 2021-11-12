@@ -1,31 +1,33 @@
-Webix Jet Demo App
-===================
+## Installation
 
-### How to run
-
-- run ```npm install```
-- run ```npm start```
-- open ```http://localhost:8080```
-
-For more details, check https://www.gitbook.com/book/webix/webix-jet/details
-
-### Other commands
-
-#### Run lint
-
-```
-npm run lint
+```bash
+npm i
 ```
 
-#### Build production files
+## Usage
 
+### Development server
+
+```bash
+npm start
 ```
+
+You can view the development server at `localhost:8080`.
+
+### Production build
+
+```bash
 npm run build
 ```
 
-After that you can copy the "codebase" folder to the production server
+> Note: Install [http-server](https://www.npmjs.com/package/http-server) globally to deploy a simple server.
 
+```bash
+npm i -g http-server
+```
 
-### License
+You can view the deploy by creating a server in `dist`.
 
-MIT
+```bash
+cd dist && http-server
+```
