@@ -30,7 +30,13 @@ export const fetchPlaces = async (opt) => {
       }
     )
 
-    return await result.json()
+    return await result.json().then((json) =>
+      json.features.map((item) => ({
+        id: item.properties.place_id,
+        value: item.properties.display_name,
+        position: { lat: item.bbox[1], lng: item.bbox[0] },
+      }))
+    )
   } catch (e) {
     return e
   }

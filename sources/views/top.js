@@ -1,7 +1,6 @@
 import { JetView } from 'webix-jet'
-import { fetchPlaceByLatLng } from '../api/fetchPlaceByLatLng'
 import { formatSeconds } from '../helpers/format-seconds'
-import SearchPlacesWindow from './SearchPlacesWindow'
+import SearchArea from './SearchArea'
 
 const POINTS = {
   start: 'start',
@@ -37,30 +36,17 @@ export default class TopView extends JetView {
     this.RoutingControl = null
     this.openMap = null
     this.contextMenuView = null
+    this.leftSidebar = null
     this.coords = new Map()
   }
 
   config() {
     return {
-      cols: [
-        {
-          view: 'scrollview',
-          localId: 'leftSidebarView',
-          hidden: true,
-          body: {
-            rows: [
-              { view: 'spacer', height: 90 },
-              { maxWidth: 400, localId: 'instructionsView', rows: [] },
-            ],
-          },
-        },
-        {
-          view: 'open-map',
-          localId: 'map',
-          zoom: 15,
-          center: [53.9006, 27.559],
-        },
-      ],
+      view: 'open-map',
+      localId: 'map',
+      zoom: 15,
+      minWidth: 400,
+      center: [53.9006, 27.559],
     }
   }
 
@@ -123,26 +109,13 @@ export default class TopView extends JetView {
       switch (id) {
         case POINTS.start:
           this.app.callEvent('onStartPointChanged', eventParams)
-          // this.searchWindow.setStartPointValue('olo')
           break
         case POINTS.finish:
           this.app.callEvent('onEndPointChanged', eventParams)
-          // this.searchWindow.setFinishPointValue('olo')
           break
         default:
           throw new Error(`Invalid context menu id: ${id}`)
       }
-    })
-  }
-
-  #attachSearchWindowEvents() {
-    this.on(this.searchWindow.searchComboStart.getList(), 'onItemClick', (id) => {
-      const { position } = this.searchWindow.searchComboStart.getItem(id)
-      this.app.callEvent('onStartPointChanged', [{ position }, { zoom: true }])
-    })
-    this.on(this.searchWindow.searchComboFinish.getList(), 'onItemClick', (id) => {
-      const { position } = this.searchWindow.searchComboFinish.getItem(id)
-      this.app.callEvent('onEndPointChanged', [{ position }, { zoom: true }])
     })
   }
 
@@ -159,15 +132,14 @@ export default class TopView extends JetView {
 
   #attachRoutingControlEvents() {
     this.RoutingControl.addEventListener('routesfound', (event) => {
-      console.log(event)
       if (event.routes.length === 0) return
 
-      const instructionsView = this.$$('instructionsView')
-      const leftSidebarView = this.$$('leftSidebarView')
+      const instructionsView = this.leftSidebar.queryView(
+        (view) => view.config.localId === 'instructionsView'
+      )
       instructionsView
         .getChildViews()
         .forEach((view) => instructionsView.removeView(view.config.id))
-      leftSidebarView.show()
 
       const rows = event.routes.map((route) => {
         const { totalDistance, totalTime } = route.summary
@@ -184,6 +156,7 @@ export default class TopView extends JetView {
                   </div>`,
           headerHeight: 50,
           headerAltHeight: 50,
+          collapsed: true,
           body: { rows: instructionUi },
         }
       })
@@ -202,22 +175,71 @@ export default class TopView extends JetView {
     })
 
     this.RoutingControl.addEventListener('waypointschanged', async (data) => {
-      // console.log(data)
       // const promises = data.waypoints
       //   .filter((waypoint) => waypoint.latLng)
       //   .map((waypoint) => {
       //     return fetchPlaceByLatLng({ lng: 27.559, lat: 53.9006 })
       //   })
       // const result = await Promise.all(promises)
-      // console.log(result)
     })
   }
 
   async init() {
     this.contextMenuView = this.ui(ContextMenuView)
-    this.searchWindow = this.ui(SearchPlacesWindow)
     this.openMap = await this.$$('map').getMap('wait')
     this.openMap.zoomControl.setPosition('topright')
+
+    this.leftSidebar = this.ui({
+      view: 'sidemenu',
+      maxWidth: 300,
+      width: 300,
+      position: 'left',
+      escHide: false,
+      zIndex: 401,
+      body: {
+        rows: [
+          {
+            cols: [
+              SearchArea,
+              {
+                rows: [
+                  {
+                    view: 'icon',
+                    icon: 'mdi mdi-close',
+                    click: () => {
+                      this.leftSidebar.hide()
+                    },
+                  },
+                  {},
+                ],
+              },
+            ],
+          },
+          {
+            view: 'spacer',
+            height: 20,
+          },
+          { localId: 'instructionsView', rows: [] },
+        ],
+      },
+    })
+
+    this.leftSidebar.show()
+
+    this.ui({
+      view: 'window',
+      head: false,
+      zIndex: 400,
+      top: 10,
+      left: 10,
+      body: {
+        view: 'icon',
+        icon: 'mdi mdi-menu',
+        click: () => {
+          this.leftSidebar.show()
+        },
+      },
+    }).show()
 
     webix.require(
       ['https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.js'],
@@ -227,16 +249,31 @@ export default class TopView extends JetView {
         this.RoutingControl.addTo(this.openMap)
         this.RoutingControl.setWaypoints([])
 
-        const startUrlCoords = this.getParam(POINTS.start)
-        const finishUrlCoords = this.getParam(POINTS.finish)
-        if (startUrlCoords) this.#setWaypoints(startUrlCoords.split(','), POINTS.start)
-        if (finishUrlCoords) this.#setWaypoints(finishUrlCoords.split(','), POINTS.finish)
+        const startUrlCoords = this.getParam(POINTS.start)?.split(',')
+        const finishUrlCoords = this.getParam(POINTS.finish)?.split(',')
+        if (startUrlCoords) {
+          this.app.callEvent('onStartPointChanged', [
+            {
+              position: { lat: startUrlCoords[1], lng: startUrlCoords[0] },
+              title: POINTS.start,
+            },
+          ])
+        }
+        if (finishUrlCoords) {
+          this.app.callEvent('onEndPointChanged', [
+            {
+              position: { lat: finishUrlCoords[1], lng: finishUrlCoords[0] },
+              title: POINTS.finish,
+            },
+          ])
+        }
       }
     )
 
-    this.searchWindow.show()
-    this.#attachSearchWindowEvents()
     this.#registerServiceWorker()
+  }
+
+  ready() {
     this.#attachMapEvents()
     this.#attachAppEvents()
   }
