@@ -16,20 +16,8 @@ export default class SearchResultList extends JetView {
     }
   }
 
-  showProgress() {
-    this.getRoot().showProgress()
-  }
-
-  hideProgress() {
-    this.getRoot().hideProgress()
-  }
-
-  showOverlay(...args) {
-    this.getRoot().showOverlay(...args)
-  }
-
-  hideOverlay() {
-    this.getRoot().hideOverlay()
+  get listView() {
+    return this.getRoot()
   }
 
   parse(...args) {
@@ -38,10 +26,5 @@ export default class SearchResultList extends JetView {
 
   getItem(id) {
     return this.getRoot().getItem(id)
-  }
-
-  init(view) {
-    window.webix.extend(view, window.webix.ProgressBar)
-    window.webix.extend(view, window.webix.OverlayBox)
   }
 }

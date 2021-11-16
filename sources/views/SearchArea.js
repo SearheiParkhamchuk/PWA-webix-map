@@ -1,21 +1,14 @@
 import { JetView } from 'webix-jet'
 import { fetchPlaces } from '../api/fetchPlaces'
-import SearchField from './SearchField'
-import SearchResultList from './SearchResultList'
+import SearchFieldWithResult from './SearchFieldWithResult'
 
 export default class SearchArea extends JetView {
   constructor(app, options = {}) {
     super(app)
     this.options = options
 
-    this._searchFieldStart = new SearchField(this.app, { placeholder: 'Start...' })
-    this._searchFieldFinish = new SearchField(this.app, { placeholder: 'Finish...' })
-    this._searchResultList = new SearchResultList(this.app, {
-      hidden: true,
-      navigation: true,
-      select: true,
-    })
-    this._searchPopup = null
+    this._searchFieldStart = new SearchFieldWithResult(this.app, { placeholder: 'Start...' })
+    this._searchFieldFinish = new SearchFieldWithResult(this.app, { placeholder: 'Finish...' })
   }
 
   get searchFieldStart() {
@@ -23,12 +16,6 @@ export default class SearchArea extends JetView {
   }
   get searchFieldFinish() {
     return this._searchFieldFinish
-  }
-  get searchResultList() {
-    return this._searchResultList
-  }
-  get searchPopup() {
-    return this._searchPopup
   }
 
   config() {
@@ -38,43 +25,44 @@ export default class SearchArea extends JetView {
   }
 
   #attachEvents() {
-    const handleTimedKeyPress = async (value) => {
+    const handleInputChange = async (value, searchField) => {
       if (!value || !value.trim()) {
-        this.searchPopup.hide()
-        this.searchResultList.getRoot().clearAll()
+        searchField.hidePopup()
+        searchField.clearResultList()
         return
       }
-      const result = await fetchPlaces({ q: value })
-      this.searchResultList.getRoot().parse(result, 'json', true)
-      this.searchPopup.show(this.searchFieldFinish.getRoot().$view)
+      try {
+        searchField.showProgress()
+        const result = await fetchPlaces({ q: value })
+        searchField.parseResultData(result, 'json', true)
+        searchField.showPopup(searchField.searchField.fieldView.$view)
+      } catch (error) {
+        this.webix.message({ text: error.message, type: 'error' })
+      } finally {
+        searchField.hideProgress()
+      }
     }
 
-    this.on(this.searchFieldStart.searchField, 'onTimedKeyPress', async () => {
-      this.searchFieldStart.showProgress()
-      await handleTimedKeyPress(this.searchFieldStart.getValue())
-      this.searchFieldStart.hideProgress()
-    })
-
-    this.on(this.searchFieldFinish.searchField, 'onTimedKeyPress', async () => {
-      this.searchFieldFinish.showProgress()
-      await handleTimedKeyPress(this.searchFieldFinish.getValue())
-      this.searchFieldFinish.hideProgress()
-    })
-
-    this.on(this.searchResultList.getRoot(), 'onItemClick', (id) => {
-      const { position } = this.searchResultList.getRoot().getItem(id)
+    this.on(this.searchFieldStart.resultListView, 'onItemClick', (id) => {
+      const { position, value } = this.searchFieldStart.getListItem(id)
       this.app.callEvent('onStartPointChanged', [{ position }, { zoom: true }])
-      this.searchPopup.hide()
+      this.searchFieldStart.hidePopup()
+      this.searchFieldStart.setFieldValue(value)
     })
-  }
 
-  init() {
-    this._searchPopup = this.ui({
-      view: 'popup',
-      width: 300,
-      body: this.searchResultList,
-      autofocus: false,
-      zIndex: 500,
+    this.on(this.searchFieldFinish.resultListView, 'onItemClick', (id) => {
+      const { position, value } = this.searchFieldFinish.getListItem(id)
+      this.app.callEvent('onEndPointChanged', [{ position }, { zoom: true }])
+      this.searchFieldFinish.hidePopup()
+      this.searchFieldFinish.setFieldValue(value)
+    })
+
+    this.on(this.searchFieldStart.fieldView, 'onTimedInputChange', (event) => {
+      handleInputChange(event.target.value, this.searchFieldStart)
+    })
+
+    this.on(this.searchFieldFinish.fieldView, 'onTimedInputChange', async (event) => {
+      handleInputChange(event.target.value, this.searchFieldFinish)
     })
   }
 

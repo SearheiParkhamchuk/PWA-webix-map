@@ -4,6 +4,7 @@ export default class SearchField extends JetView {
   constructor(app, options = {}) {
     super(app)
     this.options = options
+    this.events = {}
   }
 
   config() {
@@ -12,7 +13,7 @@ export default class SearchField extends JetView {
         {
           view: 'text',
           placeholder: this.options.placeholder,
-          localId: 'searchCombo',
+          localId: 'searchField',
         },
         {
           view: 'icon',
@@ -23,29 +24,56 @@ export default class SearchField extends JetView {
     }
   }
 
-  get searchField() {
-    return this.$$('searchCombo')
+  get fieldView() {
+    return this.$$('searchField')
   }
 
-  get icon() {
+  get iconView() {
     return this.$$('searchIcon')
   }
 
   showProgress() {
-    this.icon.define('icon', 'wxi-sync rotate')
-    this.icon.refresh()
+    this.iconView.define('icon', 'wxi-sync rotate')
+    this.iconView.refresh()
   }
 
   hideProgress() {
-    this.icon.define('icon', 'wxi-search')
-    this.icon.refresh()
+    this.iconView.define('icon', 'wxi-search')
+    this.iconView.refresh()
   }
 
   getValue() {
-    return this.searchField.getValue()
+    return this.fieldView.getValue()
   }
 
   setValue(...args) {
-    this.searchField.setValue(...args)
+    this.fieldView.setValue(...args)
+  }
+
+  #attachEvents() {
+    let timeoutId = null
+
+    const handleTimedInputChange = (event) => {
+      const value = event.target.value
+      if (timeoutId) clearTimeout(timeoutId)
+
+      timeoutId = setTimeout(() => {
+        this.fieldView.callEvent('onTimedInputChange', [{ target: { value } }])
+      }, 1000)
+    }
+
+    this.fieldView.getInputNode().addEventListener('input', handleTimedInputChange)
+
+    this.events['onTimedInputChange'] = [handleTimedInputChange]
+  }
+
+  ready() {
+    this.#attachEvents()
+  }
+
+  destroy() {
+    Object.entries(this.events).forEach(([eventName, eventHandler]) =>
+      this.fieldView.getInputNode().removeEventListener(eventName, eventHandler)
+    )
   }
 }

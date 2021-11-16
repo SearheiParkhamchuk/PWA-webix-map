@@ -21,13 +21,16 @@ const ContextMenuView = {
 
 const createInstructionsView = ({ instructions }) => [
   {
-    view: 'list',
-    template: (obj) => `<div style="display:flex; justify-content: space-between">
-                          <span>${obj.text}</span>
-                          <span>${obj.distance}m</span>
-                        </div>`,
-    data: instructions,
-    autoheight: true,
+    view: 'scrollview',
+    body: {
+      view: 'list',
+      template: (obj) => `<div style="display:flex; justify-content: space-between">
+                        <span>${obj.text}</span>
+                        <span>${obj.distance}m</span>
+                      </div>`,
+      data: instructions,
+      autoheight: true,
+    },
   },
 ]
 export default class TopView extends JetView {
